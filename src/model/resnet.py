@@ -74,14 +74,14 @@ class BottleNeck(nn.Module):
         return nn.ReLU(inplace=True)(self.residual_function(x) + self.shortcut(x))
 
 
-class DQN(nn.Module):
+class ResNet(nn.Module):
     """
     基于 ResNet 架构的深度 Q 网络
     用于强化学习任务，也可用于分类任务
     """
 
     def __init__(self, in_channels, block, num_blocks, num_actions):
-        super(DQN, self).__init__()
+        super().__init__()
         self.in_channels = 64
 
         self.conv1 = nn.Sequential(
@@ -122,4 +122,4 @@ class DQN(nn.Module):
 
 def res18(in_channels, num_classes):
     """创建基于 ResNet-18 的 DQN"""
-    return DQN(in_channels=in_channels, block=BasicBlock, num_blocks=[2, 2, 2, 2], num_actions=num_classes)
+    return ResNet(in_channels=in_channels, block=BasicBlock, num_blocks=[2, 2, 2, 2], num_actions=num_classes)

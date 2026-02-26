@@ -22,8 +22,6 @@ def visualize_predictions(model, data_loader, device, num_images=10, delay=0):
     model.eval()
     images_shown = 0
     
-    print(f"Starting visualization of {num_images} images...")
-    
     with torch.no_grad():
         for x_batch, _ in data_loader:
             for i in range(len(x_batch)):
@@ -41,9 +39,15 @@ def visualize_predictions(model, data_loader, device, num_images=10, delay=0):
                 # 创建子图：左图右概率
                 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
                 
+                # 反归一化处理以便正常显示
+                # MNIST 归一化参数: mean=0.1307, std=0.3081
+                mean = torch.tensor([0.1307, 0.1307, 0.1307]).view(3, 1, 1)
+                std = torch.tensor([0.3081, 0.3081, 0.3081]).view(3, 1, 1)
+                img_unnorm = img * std + mean
+                
                 # 显示图像
                 # 自动处理通道：[C, H, W] -> [H, W, C] 或 [H, W]
-                display_img = img.permute(1, 2, 0).cpu().numpy()
+                display_img = img_unnorm.permute(1, 2, 0).cpu().numpy()
                 if display_img.shape[2] == 1:
                     display_img = display_img.squeeze(2)
                 
@@ -60,6 +64,79 @@ def visualize_predictions(model, data_loader, device, num_images=10, delay=0):
                 ax2.set_ylim(0, 1.1)
                 
                 # 添加数值标签
+                for j, v in enumerate(probs):
+                    ax2.text(j, v + 0.01, f"{v:.2f}", ha='center', fontsize=8)
+                
+                plt.tight_layout()
+                images_shown += 1
+                
+                if delay > 0:
+                    plt.show(block=False)
+                    plt.pause(delay)
+                    plt.close(fig)
+                else:
+                    plt.show()
+
+
+def visualize_incorrect_predictions(model, data_loader, device, num_images=10, delay=0):
+    """
+    专门可视化模型预测错误的样本
+    
+    Args:
+        model: 神经网络模型
+        data_loader: 数据加载器
+        device: 计算设备
+        num_images: 展示图片数量
+        delay: 每张图展示延时 (秒)
+    """
+    model.eval()
+    images_shown = 0
+    
+    print(f"Searching for {num_images} incorrect predictions...")
+    
+    with torch.no_grad():
+        for x_batch, y_batch in data_loader:
+            x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+            logits = model(x_batch)
+            preds = torch.argmax(logits, dim=1)
+            
+            # 找到预测错误的索引
+            incorrect_indices = (preds != y_batch).nonzero(as_tuple=True)[0]
+            
+            for idx in incorrect_indices:
+                if images_shown >= num_images:
+                    return
+                
+                img = x_batch[idx].cpu()
+                target = y_batch[idx].item()
+                predict = preds[idx].item()
+                
+                # 获取该样本的完整概率分布
+                probs = torch.nn.functional.softmax(logits[idx], dim=0).cpu().numpy()
+                
+                # 创建子图
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+                
+                # 反归一化
+                mean = torch.tensor([0.1307, 0.1307, 0.1307]).view(3, 1, 1)
+                std = torch.tensor([0.3081, 0.3081, 0.3081]).view(3, 1, 1)
+                img_unnorm = img * std + mean
+                
+                display_img = img_unnorm.permute(1, 2, 0).numpy()
+                if display_img.shape[2] == 1:
+                    display_img = display_img.squeeze(2)
+                
+                display_img = display_img.clip(0, 1)
+                
+                ax1.imshow(display_img, cmap='gray' if len(display_img.shape) == 2 else None)
+                ax1.set_title(f"Target: {target}, Pred: {predict}", color='red')
+                ax1.axis('off')
+                
+                ax2.bar(range(10), probs)
+                ax2.set_xticks(range(10))
+                ax2.set_title("Probabilities")
+                ax2.set_ylim(0, 1.1)
+                
                 for j, v in enumerate(probs):
                     ax2.text(j, v + 0.01, f"{v:.2f}", ha='center', fontsize=8)
                 

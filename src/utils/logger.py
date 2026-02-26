@@ -4,6 +4,7 @@
 """
 
 import os
+import datetime
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -82,4 +83,6 @@ def create_logger(experiment_name, log_dir="logs"):
     Returns:
         TrainLogger: 日志记录器
     """
-    return TrainLogger(log_dir=log_dir, experiment_name=experiment_name)
+    log_dir = os.path.join(log_dir, experiment_name)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    return TrainLogger(log_dir=log_dir, experiment_name=timestamp)

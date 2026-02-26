@@ -1,46 +1,50 @@
+import os
+import sys
+path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(path)
+
 import torch
 import torchvision
 from tqdm import tqdm
 
 # 导入自定义模块
-from data.dataset import get_data_loader
-from model import res18
-from utils.checkpoint import save_model, load_model, get_model_path
-from utils.eval import evaluate
-from utils.logger import create_logger
-from utils.visualize import visualize_predictions, FeatureMapHook, visualize_feature_maps
+from src.data import get_data_loader, get_data_loader_with_mistakes
+from src.model import res18, simple_cnn, mlp
+from src.utils.checkpoint import save_model, load_model, get_model_path
+from src.utils.eval import evaluate
+from src.utils.logger import create_logger
+from src.utils.visualize import FeatureMapHook, visualize_predictions, visualize_feature_maps
 
 def main():
     # 获取数据加载器
-    train_data = get_data_loader(is_train=True)
-    test_data = get_data_loader(is_train=False)
+    # train_data = get_data_loader_with_mistakes(batch_size=128, repeat_count=100)
+    # test_data = get_data_loader_with_mistakes(batch_size=128, repeat_count=1)
+    train_data = get_data_loader(batch_size=128, is_train=True)
+    test_data = get_data_loader(batch_size=512, is_train=False)
     
     # 实例化模型
-    model = res18(in_channels=3, num_classes=10)
+    model = mlp(in_features=3*28*28, num_classes=10)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     model.to(device)
     
     # 加载已有模型
-    model_path = get_model_path("resnet18_mnist")
+    model_path = get_model_path("mlp_mnist")
     load_model(model, model_path)
 
     # 初始化日志和 Hook
-    logger = create_logger("resnet18_experiment")
+    logger = create_logger("mlp_experiment")
     hook = FeatureMapHook()
     
-    # 注册特征图捕获 Hook (ResNet-18 特征层)
-    hook.register_hook(model.conv1, 'conv1')
-    hook.register_hook(model.conv2_x, 'layer1')
-    hook.register_hook(model.conv3_x, 'layer2')
-    hook.register_hook(model.conv4_x, 'layer3')
-    hook.register_hook(model.conv5_x, 'layer4')
+    # 注册特征图捕获 Hook (SimpleCNN 特征层)
+    # hook.register_hook(model.features[0], 'conv1')
+    # hook.register_hook(model.features[3], 'conv2')
 
     print(f"Initial accuracy: {evaluate(model, test_data, device):.4f}")
     optimizer = torch.optim.Adam(model.parameters(), lr=0.00001)
     
     # 训练循环
-    for epoch in range(1):
+    for epoch in range(3):
         model.train()
         loop = tqdm(train_data, desc=f'Epoch {epoch + 1}')
         
@@ -69,18 +73,19 @@ def main():
                         logger.log_feature_maps(grid, name)
             
             logger.step()
-            
+        
         # Epoch 结束处理
         acc = evaluate(model, test_data, device)
-        print(f"Epoch {epoch} Accuracy: {acc:.4f}")
+        print(f"Epoch {epoch + 1} Accuracy: {acc:.4f}")
         logger.log_accuracy(acc)
-        save_model(model, model_path, metadata={'accuracy': acc, 'epoch': epoch})
+        # visualize_predictions(model, test_data, device, num_images=10, delay=0)
         
-        if acc > 0.99:
+        if acc > 0.98:
             break
         logger.next_epoch()
 
     logger.close()
+    save_model(model, model_path)
     visualize_predictions(model, test_data, device, num_images=10, delay=0)
 
 if __name__ == "__main__":

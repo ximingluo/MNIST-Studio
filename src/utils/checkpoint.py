@@ -60,7 +60,7 @@ def load_model(model, path, device=None):
     return model, metadata
 
 
-def get_model_path(model_name, models_dir="models"):
+def get_model_path(model_name, models_dir="outputs/models"):
     """
     根据模型名称生成标准保存路径
     
