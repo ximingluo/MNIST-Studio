@@ -1,0 +1,6 @@
+__pycache__
+logs
+models
+src/data/database
+
+.trae
